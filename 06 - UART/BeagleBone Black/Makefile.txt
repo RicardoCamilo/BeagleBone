@@ -1,0 +1,11 @@
+
+comp:
+	g++ uart.c -o uart -lpthread
+
+clean:
+	rm uart
+
+run:
+	./uart
+
+all: clean comp run

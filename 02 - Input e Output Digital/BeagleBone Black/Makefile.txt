@@ -1,0 +1,9 @@
+comp:
+	g++ Led.cpp -o Led
+clean:
+	rm -rf Led
+
+run:
+	./Led
+
+all: clean comp run

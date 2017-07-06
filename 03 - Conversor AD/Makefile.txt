@@ -1,0 +1,11 @@
+comp:
+	gcc AD.c -o AD
+
+clean:
+	rm -rf AD
+
+run:
+	./AD
+
+
+all: clean comp run

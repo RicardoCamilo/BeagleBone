@@ -1,0 +1,67 @@
+#include <iostream>
+#include "SimpleGPIO.h"
+#include "SimpleGPIO.cpp"
+#include <stdint.h>
+#include <unistd.h>
+
+#include <pthread.h>
+#include <stdio.h>
+#define NUM_THREADS     2
+
+void *LED(void *gpiovalue)
+{
+
+    unsigned int gpio;
+    gpio = (unsigned int)gpiovalue;
+ 
+    printf("Oi! Eu sou a Thread do LED ligado ao GPIO %ld!\n", gpio);
+
+    gpio_export(gpio);  // Exporta o GPIO para que possa ser acessado
+    gpio_set_dir(gpio, OUTPUT_PIN);  // Configura o GPIO como saída
+
+    for(uint32_t u32_i=0; u32_i<20; u32_i++)
+    {
+        gpio_set_value(gpio, LOW);  // Inicia com o LED desligado
+        usleep(1000000);
+        gpio_set_value(gpio, HIGH);  // Liga o LED
+        usleep(1000000);
+    }
+
+    gpio_set_value(gpio, LOW); // Finaliza com o LED desligado
+
+
+   pthread_exit(NULL);
+}
+
+
+int main (int argc, char *argv[])
+{
+   pthread_t threads[NUM_THREADS];
+   int rc;
+   unsigned int gpio; 
+   
+   //-----------------------------------------------------------------
+   printf("---------------------------------------------\n");
+   //--- Cria Thread para o LED no GPIO1_28 = (1x32) + 28 = 60 -------
+   gpio = 60;
+   printf("Criando a Thread do GPIO %ld\n", gpio);
+   rc = pthread_create(&threads[0], NULL, LED, (void *)gpio);
+   if (rc){
+      printf("ERROR; return code from pthread_create() is %d\n", rc);
+   }
+   //-----------------------------------------------------------------
+
+
+   //--- Cria Thread para o LED no GPIO1_19 = (1x32) + 19 = 51 -------
+   gpio = 51;
+   printf("Criando a Thread do GPIO %ld\n", gpio);
+   rc = pthread_create(&threads[1], NULL, LED, (void *)gpio);
+   if (rc){
+      printf("ERROR; return code from pthread_create() is %d\n", rc);
+   }
+   printf("---------------------------------------------\n");
+   //-----------------------------------------------------------------
+
+   /* Last thing that main() should do */
+   pthread_exit(NULL);
+}

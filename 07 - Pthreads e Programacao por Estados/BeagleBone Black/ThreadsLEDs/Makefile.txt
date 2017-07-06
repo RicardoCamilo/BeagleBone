@@ -1,0 +1,11 @@
+comp:
+	g++ nThreadsLEDs.c -o nThreadsLEDs -lpthread
+
+clean:
+	rm -rf nThreadsLEDs
+
+run:
+	./nThreadsLEDs
+
+
+all: clean comp run

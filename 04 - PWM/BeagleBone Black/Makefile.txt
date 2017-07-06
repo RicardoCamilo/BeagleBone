@@ -1,0 +1,11 @@
+
+comp:
+	gcc pwm.c -o pwm
+
+clean:
+	rm -f pwm
+
+run:
+	./pwm
+
+all: clean comp run

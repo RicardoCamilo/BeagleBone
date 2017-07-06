@@ -1,0 +1,195 @@
+#!/bin/bash
+
+# Desenvolvido por Frederico Fernandes de Oliveira
+
+RESPOSTA="s"
+SERVICEORIGNDIR="$3"
+SERVICENAME="$2"
+SERVICEPATH=/lib/systemd/system
+LOGPATH=~/.StartupProcessos
+LOGTEXT="Novo processo adicionado à lista de execução com a inicialização do sistema"
+SERVICEFILE="[Unit]\nDescription=Inicializa $SERVICENAME com o sistema\n\n[Service]\nExecStart=$SERVICEORIGNDIR\n\n[Install]\nWantedBy=multi-user.target"
+READMECONTENT="NÃO ACRESCENTE, DELETE, NEM MODIFIQUE OS ARQUIVOS NESTA PASTA.\n\nCada arquivo representa um processo que é exetudado junto com a inicialização do 
+sistema. Os arquivos são automaticamente gerados para se ter um controle dos serviços que são executados com o boot. Para adicionar ou remover um novo processo 
+execute 'startup'."
+
+create_service_log () {
+	# Cria o diretorio, caso necessarrio, onde os logs de cada processo ficarao
+	mkdir -p $LOGPATH
+	# Cria o log do processo atual e o adiciona textos a data atual
+	echo -e $LOGTEXT > $LOGPATH/$SERVICENAME
+	echo -e >> $LOGPATH/$SERVICENAME
+	echo -e NOME >> $LOGPATH/$SERVICENAME
+	echo -e $SERVICENAME >> $LOGPATH/$SERVICENAME
+	echo -e >> $LOGPATH/$SERVICENAME
+	echo -e DATA >> $LOGPATH/$SERVICENAME
+	date >> $LOGPATH/$SERVICENAME 
+	# Cria o arquivo README com seu respectivo texto
+	echo -e $READMECONTENT > $LOGPATH/README	
+}
+
+add_service () {
+	# Cria um arquivo .service no devido diretorio e com o devido conteudo
+	echo -e $SERVICEFILE > $SERVICEPATH/$SERVICENAME.service
+	# Habilita o servico recem criado
+	systemctl enable $SERVICENAME.service
+	# Emprime mensagens de exito e ajuda
+	echo -e Processo adicionado com sucesso. Na próxima vez que o sistema for inicializado ele será automaticamente executado.
+	echo -e
+	echo -e Para iniciá-lo agora execute:
+	echo -e systemctl start $SERVICENAME
+	echo -e
+	echo -e Para verificar o status do processo execute:
+	echo -e systemctl status $SERVICENAME
+}
+
+delete_service_log () {
+	# Deleta o arquivo de log do respectivo processo
+	rm -f $LOGPATH/$SERVICENAME
+}
+
+remove_service () {
+	# Para o serviço
+	systemctl stop $SERVICENAME.service
+	# Desabilita o servico para nao ser mais executado no boot
+	systemctl disable $SERVICENAME.service
+	# Exclui o arquivo do servico
+	rm -f $SERVICEPATH/$SERVICENAME.service
+	# Imprime uma mensagem de exito
+	echo -e Processo excluído com sucesso.
+}
+
+list_services () {
+	ALLFILES=$(ls $LOGPATH)
+	for FILE in ${ALLFILES}
+	do
+  		if [[ ${FILE} != README ]]; then
+  		 	echo ${FILE}
+  		fi 
+	done
+}
+
+usage () {
+	echo Uso para adicionar um processo:
+	echo -e "startup add nome_do_processo diretório_completo_do_executável\n"
+	echo Uso para deletar um processo:
+	echo -e "startup remove nome_do_processo\n"
+	echo Uso para deletar todos os processos adicionados por você \(usuario $USER\):
+	echo -e "startup clean\n"
+	echo Uso para listar os processos:
+	echo startup list
+}
+
+case "$1" in
+
+  # acoes a serem tomadas para se adicionar ou atualizar um servico
+  add)
+	# certifica-se do correto uso da funcao add
+	if [[ -n $2 && -n $3 && -z $4 ]]; then
+		# verifica se ja existe algum processo com esse nome
+		if [ -e $SERVICEPATH/$SERVICENAME.service ]; then
+		    echo -e Um processo com esse nome já existe. Deseja substituí-lo, \(s\)sim ou \(n\)não?
+		    read RESPOSTA
+		fi
+
+		# certifica-se que o usuario deseja alterar o processo existente
+		if [ "$RESPOSTA" == "s" ]; then
+			create_service_log
+			add_service
+		# caso contrario a acao eh cancelada
+		else
+			echo -e Operação abortada.
+		fi	
+	# caso contrario a mensagem de uso eh mostrada
+	else
+		usage
+	    exit 1	    
+	fi
+	;;
+
+  # acoes a serem tomadas para se excluir um servico em especifico
+  remove)
+	# certifica-se do correto uso da funcao remove
+	if [[ -n $2 && -z $3 ]]; then
+		# verifica se o processo existe
+		if [[ -e $SERVICEPATH/$SERVICENAME.service ]]; then
+			# verifica se ja existe algum log desse processo
+			if [ ! -e $LOGPATH/$SERVICENAME ]; then
+			    echo -e O processo $SERVICENAME não foi criado por você \(usuário $USER\). Deseja deletá-lo mesmo assim, \(s\)sim ou \(n\)não?
+			    read RESPOSTA
+			fi 
+
+			# certifica-se que o usuario deseja alterar o processo existente
+			if [ "$RESPOSTA" == "s" ]; then
+				delete_service_log
+				remove_service
+			# caso contrario a acao eh cancelada
+			else
+				echo -e Operação abortada.
+			fi
+		# caso não exita uma mensagem de erro eh exibida
+		else
+			echo O serviço $SERVICENAME não existe.
+		fi
+	# caso contrario a mensagem de uso eh mostrada
+	else
+	    usage
+	    exit 2
+	fi
+	;;
+
+  # acoes a serem tomadas para se excluir todos os servicos adicionados pelo usuario
+  clean)
+	# certifica-se do correto uso da funcao clean
+	if [[ -z $2 ]]; then
+		# pergunta se o usuario deseja deletar os processos adicionados por ele
+		echo Os seguintes processos serão deletados:
+		list_services
+		echo  Deseja continuar, \(s\)sim ou \(n\)não?
+		read RESPOSTA
+
+		# certifica-se que o usuario deseja deletar todos os processos existentes
+		if [ "$RESPOSTA" == "s" ]; then
+			ALLFILES=$(ls $LOGPATH)
+			for FILE in ${ALLFILES}
+			do
+		  		if [[ ${FILE} != README ]]; then
+		  			SERVICENAME=${FILE}
+		  			delete_service_log
+					remove_service
+		  		fi 
+			done
+			
+		# caso contrario a acao eh cancelada
+		else
+			echo -e Operação abortada.
+		fi
+	# caso contrario a mensagem de uso eh mostrada
+	else
+		usage
+		exit 3
+	fi
+	;;
+
+  # acoes a serem tomadas para se listar todos os servicos adicionados pelo usuario
+  list)
+	# certifica-se do correto uso da funcao list
+	if [[ -z $2 ]]; then
+		echo Os seguintes processos foram adicionados por você \(usuario $USER\):
+		if [[ -e $LOGPATH ]]; then
+			list_services
+		fi
+	# caso contrario a mensagem de uso eh mostrada
+	else
+		usage
+		exit 4
+	fi
+	;;
+
+  # caso nenhuma funcao valida tenha sido chamada a mensagem de uso eh mostrada
+  *)
+	usage
+	exit 5
+	;;
+esac
+

@@ -1,0 +1,105 @@
+#include <stdio.h>
+#include <fcntl.h>
+#include <unistd.h>     
+#include <stdlib.h>
+
+
+#define SYSFS_ADC_DIR "/sys/bus/iio/devices/iio:device0"
+#define SYSFS_PWM_DIR "/sys/devices/ocp.2/pwm_test_"
+#define MAX_BUF 64
+#define P9_14 "P9_14.11"
+// O valor 2 da pasta ocp pode mudar, por isso, verifique o valor correto na pasta "/sys/devices/"
+// O valor 11 do 14.11 deve ser configurado de acordo com o valor do arquivo
+// (pwm_test_P9_14.11) encontrado na pasta "/sys/devices/ocp.2"
+
+
+int adc_read(int);
+void configPWM(const char*, unsigned long, unsigned long, int);
+void setDuty(const char*, unsigned long);
+
+int main()
+{
+    int valorAD;
+	//int temp;
+    //configPWM(P9_14,1000000000,0, 1); //Frequency = (1x10E9) = 1Hz
+    configPWM(P9_14,409500,0, 0); //Frequency = 1x10E9/409500 = 2442Hz
+
+    while(1)
+    {
+        valorAD = adc_read(0);  
+	    //temp = valorAD*100;             
+	//cout << "Valor do AD é:" << valorAD << endl;
+        printf("Valor do AD é: %d\n", valorAD);
+        usleep(100000);
+        setDuty(P9_14, (long)(valorAD*100));
+    }
+
+    return 0;
+}
+
+// Função para a leitura do ADC - canal 0 a 6
+int adc_read(int pin)
+{
+	int fd;
+	int len;
+  	char buf[MAX_BUF];
+   	char ch[MAX_BUF];
+
+	snprintf(buf, sizeof(buf), SYSFS_ADC_DIR "/in_voltage%d_raw", pin);
+	fd = open(buf, O_RDONLY);
+ 	read(fd, ch, MAX_BUF);
+
+	fd = open(buf, O_RDONLY);
+	if (fd < 0) {
+		perror("adc/get-value");
+    }
+
+    close(fd);
+    return atoi(ch);
+}
+
+
+// Função para configurar o PWM
+void configPWM(const char* pino, unsigned long periodo, unsigned long duty, int polaridade)
+{
+    int fd, len;
+    char buf[MAX_BUF];
+
+    snprintf(buf, sizeof(buf), SYSFS_PWM_DIR "%s/period", pino);
+    fd = open(buf, O_WRONLY);
+    len = snprintf(buf, sizeof(buf), "%lu", periodo);
+    write(fd, buf, len); 
+    close(fd);
+
+    snprintf(buf, sizeof(buf), SYSFS_PWM_DIR "%s/duty", pino);
+    printf("%s\n", buf);
+    fd = open(buf, O_WRONLY);
+    len = snprintf(buf, sizeof(buf), "%lu", duty);
+    write(fd, buf, len);
+    close(fd);
+
+    snprintf(buf, sizeof(buf), SYSFS_PWM_DIR "%s/polarity", pino);
+    printf("%s\n", buf);
+    fd = open(buf, O_WRONLY);
+    len = snprintf(buf, sizeof(buf), "%d", polaridade);
+    write(fd, buf, len);
+    close(fd);
+
+    snprintf(buf, sizeof(buf), SYSFS_PWM_DIR "%s/run", pino);
+    fd = open(buf, O_WRONLY);
+    len = snprintf(buf, sizeof(buf), "1", polaridade);
+    write(fd, buf, len);
+    close(fd);
+}
+
+// Função para atualizar o Duty Cycle
+void setDuty(const char* pino, unsigned long duty)
+{
+    int fd, len;
+    char buf[MAX_BUF];
+    snprintf(buf, sizeof(buf), SYSFS_PWM_DIR "%s/duty", pino);
+    fd = open(buf, O_WRONLY);
+    len = snprintf(buf, sizeof(buf), "%lu", duty);
+    write(fd, buf, len);
+    close(fd);
+}
